@@ -9,7 +9,7 @@ using std::string;
 #define I2C_SDA 33
 #define I2C_SCL 32
 
-int pirPin = 35;
+uint8_t pirPin = 35;
 
 int tmpSensorAddress = 0x48;
 
@@ -25,10 +25,7 @@ clock_t sleepTime;
 sample* motion=NULL;
 sample* temperature=NULL;
 sample* light=NULL;
-/*
-const char* ssidWifi = "TIM-91746045";
-const char* passWifi = "1Oj3eyR5qHD3jAaT5Jfj1Ooh";
-*/
+
 const char* ssidWifi = "TORNATOREwifi";
 const char* passWifi = "finalborgo";
 
@@ -81,13 +78,13 @@ void setup() {
   
   //Interrupt sensor setup
   pinMode(pirPin, INPUT);
-  //attachInterrupt(digitalPinToInterrupt(pirPin), detectedMotion, FALLING);
+  attachInterrupt(digitalPinToInterrupt(pirPin), detectedMotion, FALLING);
   
 }
 
 void loop() {
   cycleCounter=clock();
-  
+
   //create a light measurement sample
   light = new sample("light");
   light->startDate=Edge->Api->getActualDate();
@@ -103,46 +100,43 @@ void loop() {
   samples.push_back(temperature);
 
   Edge->evaluate(samples);
+
   samples.clear(); // after evaluated all samples delete them
 
   delete temperature;
   temperature=NULL;
   delete light;
-  light =NULL;
-  //delete motion;
-
-  // if( ((double)clock()-pirCounter)>=2000){// pir sensor needs 2 seconds to be ready to give another measurement
-  //   //attachInterrupt(digitalPinToInterrupt(pirPin), detectedMotion, FALLING);
-  //   //Serial.println("attachInterrupt");
-  // }
-  // if (!Connection->isConnected()) {
-  //   Serial.println("Device disconnected");
-  //   Serial.print("WIFI STATUS: ");
-  //   Serial.println(WiFi.status());
-  //   Connection->reconnect();
-  // }
+  light =NULL;  
+  
+  if( ((float)clock()-pirCounter)>=2000){// pir sensor needs 2 seconds to be ready to give another measurement
+    if(!motion){
+      delete motion;
+      motion=NULL;
+    }
+    attachInterrupt(digitalPinToInterrupt(pirPin), detectedMotion, FALLING);
+  }
+ 
 
   cycleCounter=clock()-cycleCounter;// duration of the exexution of th cycle
   
   // subtract te execution time to the Sleep period if result is not negative
-  ((double)cycleCounter/CLOCKS_PER_SEC) < Edge->getPeriod() ? sleepTime=(Edge->getPeriod()-(double)cycleCounter/CLOCKS_PER_SEC)*1000 : sleepTime=0;//delay in milliseconds
+  ((float)cycleCounter/CLOCKS_PER_SEC) < Edge->getPeriod() ? sleepTime=(Edge->getPeriod()-(float)cycleCounter/CLOCKS_PER_SEC)*1000 : sleepTime=0;//delay in milliseconds
   
 
   delay(sleepTime);
 }
 
-// void detectedMotion(){
-//   detachInterrupt(digitalPinToInterrupt(pirPin)); //PIR sensor needs 2 seconds to take an image to compare to
-//   pirCounter=(double)clock();
-//   Serial.println("Motion detected");
-//   motion = new sample("motion");
-//   motion->startDate=Edge->Api->getActualDate();
-//   motion->endDate=motion->startDate;
-//   motion->value=1;
-//   samples.push_back(motion);
-// }
+void detectedMotion(){
+  detachInterrupt(digitalPinToInterrupt(pirPin)); //PIR sensor needs 2 seconds to take an image to compare to
+  pirCounter=clock();
+  motion = new sample("motion");
+  //motion->startDate=Edge->Api->getActualDate();
+  //motion->endDate=motion->startDate;
+  motion->value=1;
+  samples.push_back(motion);
+}
 
-double getLux(){
+float getLux(){
   unsigned int data0, data1;
   if (lightSensor.getData(data0,data1))
   {
